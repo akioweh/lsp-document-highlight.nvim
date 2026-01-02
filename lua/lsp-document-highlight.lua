@@ -173,7 +173,7 @@ function M.cur_ref_idx(bufnr)
 	return nil
 end
 
---- jumpts to the next count-th (or previous if negative) reference
+--- jumps to the next count-th (or previous if negative) reference
 --- @param count number
 --- @param wrap? boolean
 function M.jump(count, wrap)
