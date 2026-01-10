@@ -61,7 +61,7 @@ end
 local function _compute_ranges(bufnr)
 	bufnr = bufnr or 0
 	local refs = {} --- @type LDH.symbol[]
-	local extmarks = vim.api.nvim_buf_get_extmarks(0, hl_ns, 0, -1, { details = true })
+	local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, hl_ns, 0, -1, { details = true })
 	for _, extmark in ipairs(extmarks) do
 		refs[#refs + 1] = {
 			l = { extmark[2] + 1, extmark[3] },
