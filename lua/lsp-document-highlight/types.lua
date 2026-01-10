@@ -31,4 +31,4 @@
 --- @field navigation? LDH.configNavigation
 --- @field enable? LDH.configEnable
 
---- @alias LDH.symbol {from:{[1]:number, [2]:number}, to:{[1]:number, [2]:number}}
+--- @alias LDH.symbol {l: [number, number], r: [number, number]} [(row, col), (row, col)]

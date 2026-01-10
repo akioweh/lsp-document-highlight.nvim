@@ -3,7 +3,7 @@ local utils = require("lsp-document-highlight.utils")
 
 local M = {}
 
-local em_ns = vim.api.nvim_create_namespace("nvim.lsp.references")
+local hl_ns = vim.api.nvim_create_namespace("nvim.lsp.references")
 local timer = vim.uv.new_timer() or error("Failed to create uv timer")
 local cancel_pending = nil ---@type function?
 local last_call_t = 0
@@ -45,6 +45,32 @@ function M.clear(bufnr)
 	vim.b[bufnr or 0].ldh_refs = nil
 end
 
+---@param bufnr integer
+---@param references lsp.DocumentHighlight[] lsp response data
+---@param position_encoding 'utf-8'|'utf-16'|'utf-32'
+local function _highlight(bufnr, references, position_encoding)
+	for _, reference in ipairs(references) do
+		local kind_hls = { "LspReferenceText", "LspReferenceRead", "LspReferenceWrite" }
+		local l = utils.resolve_lsp_pos(bufnr, reference.range.start, position_encoding)
+		local r = utils.resolve_lsp_pos(bufnr, reference.range["end"], position_encoding)
+		vim.hl.range(bufnr, hl_ns, kind_hls[reference.kind or 1], l, r, { priority = vim.hl.priorities.user })
+	end
+end
+
+--- @param bufnr? number
+local function _compute_ranges(bufnr)
+	bufnr = bufnr or 0
+	local refs = {} --- @type LDH.symbol[]
+	local extmarks = vim.api.nvim_buf_get_extmarks(0, hl_ns, 0, -1, { details = true })
+	for _, extmark in ipairs(extmarks) do
+		refs[#refs + 1] = {
+			l = { extmark[2] + 1, extmark[3] },
+			r = { extmark[4].end_row + 1, extmark[4].end_col },
+		}
+	end
+	vim.b[bufnr].ldh_refs = refs
+end
+
 --- requests and renders document highlights from (all) lsp servers
 --- for the current cursor position in the given (default current) buffer.
 --- all this does really,
@@ -65,25 +91,21 @@ function M.highlight(bufnr)
 	end
 	local method = "textDocument/documentHighlight"
 	local remaining = nil
-	_, cancel_pending = vim.lsp.buf_request(bufnr, method, params, function(err, result, ctx)
+	_, cancel_pending = vim.lsp.buf_request(bufnr, method, params, function(_, result, ctx)
 		if not remaining then
 			remaining = #vim.lsp.get_clients({ bufnr = bufnr, method = method })
 			M.clear(bufnr)
 		end
 		remaining = remaining - 1
-		-- fall through to existing handler
 		local client = vim.lsp.get_client_by_id(ctx.client_id)
-		if client then
-			local handler = client.handlers[method] or vim.lsp.handlers[method]
-			if handler then
-				handler(err, result, ctx)
-			end
+		if client and result then
+			_highlight(ctx.bufnr, result, client.offset_encoding)
 		end
 		-- the last lsp has responded
 		if remaining == 0 then
 			cancel_pending = nil
 			last_call_t = vim.loop.now()
-			M._compute_words(bufnr)
+			_compute_ranges(bufnr)
 		end
 	end, function() end)
 end
@@ -137,38 +159,38 @@ function M.should_highlight(bufnr)
 	return config.get().enable.buffers(bufnr)
 end
 
---- @package
---- @param bufnr? number
-function M._compute_words(bufnr)
-	bufnr = bufnr or 0
-	local refs = {} --- @type LDH.symbol[]
-	---@type vim.api.keyset.get_extmark_item[]
-	local extmarks = vim.api.nvim_buf_get_extmarks(0, em_ns, 0, -1, { details = true })
-	for _, extmark in ipairs(extmarks) do
-		local w = {
-			from = { extmark[2] + 1, extmark[3] },
-			to = { extmark[4].end_row + 1, extmark[4].end_col },
-		}
-		refs[#refs + 1] = w
-	end
-	vim.b[bufnr].ldh_refs = refs
-end
-
 --- index of the current reference under the cursor (in the list of all references),
---- or nil if cursor has moved out of the previous set of references
+--- or nil if cursor has moved out of the set of references
 --- @package
 --- @param bufnr? number
+--- @param lenient? boolean find previous-nearest if not in any
+--- @param reverse? boolean when lenient, find next-nearest instead of previous-
 --- @return number? word_idx
-function M.cur_ref_idx(bufnr)
+function M.cur_ref_idx(bufnr, lenient, reverse)
 	bufnr = bufnr or 0
 	local row, col = unpack(utils.get_cursor(bufnr))
 	if row == 0 then
 		return nil -- no cursor position
 	end
-	for i, w in ipairs(vim.b[bufnr].ldh_refs or {}) do
-		if row >= w.from[1] and row <= w.to[1] and col >= w.from[2] and col <= w.to[2] then
+
+	local refs = vim.b[bufnr].ldh_refs or {}
+	for i, ref in ipairs(refs) do
+		local rl, cl = unpack(ref.l)
+		local rr, cr = unpack(ref.r)
+		local gone_past = row < rl or (row == rl and col < cl)
+		if not gone_past and (row < rr or (row == rr and col <= cr)) then
 			return i
 		end
+		if gone_past then
+			if lenient then
+				return reverse and i or (i - 1)
+			end
+			return nil
+		end
+	end
+
+	if lenient then
+		return reverse and #refs + 1 or #refs
 	end
 	return nil
 end
@@ -184,7 +206,7 @@ function M.jump(count, wrap)
 	if not refs or #refs == 0 then
 		return
 	end
-	local idx = M.cur_ref_idx()
+	local idx = M.cur_ref_idx(0, true, count < 0)
 	if not idx then
 		return
 	end
@@ -203,7 +225,7 @@ function M.jump(count, wrap)
 		if config.get().navigation.set_jump then
 			vim.cmd.normal({ "m`", bang = true })
 		end
-		vim.api.nvim_win_set_cursor(0, target.from)
+		vim.api.nvim_win_set_cursor(0, target.l)
 		if config.get().navigation.open_folds then
 			vim.cmd.normal({ "zv", bang = true })
 		end
