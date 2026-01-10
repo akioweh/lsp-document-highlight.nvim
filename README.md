@@ -1,9 +1,9 @@
 # lsp-document-highlight.nvim
 
-_does `vim.lsp.buf.document_highlight()` for you in a fast way_
+_provides you with the power of the `textDocument.documentHighlight` LSP method in a speedy way_
 
-> [!INFO]  
-> "document highlight", aka. "cursor word highlighting" or "reference highlighting",
+> [!TIP]  
+> [`textDocument.documentHighlight`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentHighlight), aka. "cursor word highlighting" or "reference highlighting",
 > is the UI feature where all references to the symbol under the cursor are shown using a highlight.
 
 ## why does this exist
