@@ -198,20 +198,21 @@ end
 --- jumps to the next count-th (or previous if negative) reference
 --- @param count number
 --- @param wrap? boolean
+--- @return boolean handled false when there are no current highlights to jump between; true otherwise
 function M.jump(count, wrap)
   if not M.should_highlight() then
-    return
+    return false
   end
   local refs = vim.b[0].ldh_refs
   if not refs or #refs == 0 then
-    return
+    return false
+  end
+  if count == 0 then
+    return true
   end
   local idx = M.cur_ref_idx(0, true, count < 0)
   if not idx then
-    return
-  end
-  if count == 0 then
-    return
+    return false
   end
   idx = idx + count
   if math.abs(count) > 1 then
@@ -232,6 +233,7 @@ function M.jump(count, wrap)
   elseif config.get().navigation.notify_end then
     vim.notify("No more references", vim.log.levels.INFO)
   end
+  return true
 end
 
 return M
