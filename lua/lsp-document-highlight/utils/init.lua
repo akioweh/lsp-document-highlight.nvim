@@ -1,5 +1,7 @@
 local M = {}
 
+M.search_count = require("lsp-document-highlight.utils.search_count")
+
 --- calls `vim.api.nvim_buf_get_lines()` but tries to load buffer first
 --- @param bufnr integer
 --- @param row integer (zero-indexed)
