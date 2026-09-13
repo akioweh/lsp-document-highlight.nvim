@@ -36,63 +36,48 @@ if you have `lua_ls` set up, you can also enjoy autocompletion and
 hover documentation in your plugin config
 if you annotate the table with the `LDH.config` type.
 
-example setup with keymaps to navigate references (using `lazy.nvim`):
-
-```lua
----@type LazySpec
-return {
-  {
-    "akioweh/lsp-document-highlight.nvim",
-    lazy = false,
-    keys = {
-      {
-        "[[",
-        function()
-          require("lsp-document-highlight").jump(-vim.v.count1, true)
-        end,
-        desc = "Previous Reference",
-      },
-      {
-        "]]",
-        function()
-          require("lsp-document-highlight").jump(vim.v.count1, true)
-        end,
-        desc = "Next Reference",
-      },
-    },
-    ---@type LDH.config
-    opts = {
-      throttle = 50,
-    },
-  },
-}
-```
-
-> [!TIP]  
-> passing `vim.v.count1` into `jump` allows one to naturally use vim keycounts to jump multiple references at once.
-
 ## lua api
 
 the module is called `lsp-document-highlight`.
-require it to access all the public functions (see [the code](./lua/lsp-document-highlight.lua) ).
+require it to access all the public functions (see [the code](./lua/lsp-document-highlight.lua)).
 
-the only thing of interest now is the `require("lsp-document-highlight").jump(count, wrap)` function:
+the only thing of interest now is the `require("lsp-document-highlight").jump(count)` function:
+
+> [!TIP]  
+> in a keymap, passing `vim.v.count1` into `jump` allows one to naturally use vim keycounts to jump multiple references at once.
 
 ```lua
 --- jumps to the next count-th (or previous if negative) reference
 --- @param count number
---- @param wrap? boolean definitely self-explanatory
-function M.jump(count, wrap)
+--- @return LDH.JumpResult|boolean result jump search count, or false when "unhandled"
+function M.jump(count)
   -- ...
 end
 ```
 
 > [!NOTE]  
-> if `count` is more than 1 (negative or positive), jumping will never wrap around.
-> this, with a keymap setup like above, makes `[[` and `]]` only wrap when a keycount is NOT given;
-> any large enough keycount will get you to the first or last reference instead of sending you somewhere random due to wrapping.
+> this function follows the behavior of built-in searches like `#` / `*`;
+> wrapping behavior follows `vim.o.wrapscan`, search count is printed according to `vim.o.shortmess`, certain marks are set, etc.
+>
+> this means that such a config naturally "empowers" `#` / `*` with LSP info,
+> and falls back to string matching when needed:
+>
+> ```lua
+> vim.keymap.set("n", "#", function()
+>   if not require("lsp-document-highlight").jump(-vim.v.count1) then
+>     -- using raw feedkeys to avoid stacktrace being printed when Vim: E348 is thrown (when cursor on whitespace)
+>     vim.api.nvim_feedkeys(vim.v.count1 .. "#", "n", false)
+>   end
+> end)
+>
+> vim.keymap.set("n", "*", function()
+>   if not require("lsp-document-highlight").jump(vim.v.count1) then
+>     vim.api.nvim_feedkeys(vim.v.count1 .. "*", "n", false)
+>   end
+> end)
+> ```
 
-call `.enable()` or `.disable()` to do what the function names suggest.  
+`.enable()` and `.disable()` do what the function names suggest.  
 you can also do this per-buffer by passing a filtering predicate to the `enable.buffer` key in the config.
 i recommend storing a flag in `vim.b[]` and have the predicate check the flag :).
 

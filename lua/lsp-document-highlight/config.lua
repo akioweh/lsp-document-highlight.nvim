@@ -3,11 +3,7 @@ local M = {}
 --- @type LDH.configFull
 M.DEFAULT = {
   throttle = 150,
-  navigation = {
-    notify_end = true,
-    open_folds = true,
-    set_jump = true,
-  },
+  clamp_jumps = false,
   enable = {
     modes = { "n", "c" }, -- c is included so highlights don't disappear when typing commands
     ---@diagnostic disable-next-line: unused-local

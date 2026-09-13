@@ -197,9 +197,8 @@ end
 
 --- jumps to the next count-th (or previous if negative) reference
 --- @param count number
---- @param wrap? boolean
---- @return boolean handled false when there are no current highlights to jump between; true otherwise
-function M.jump(count, wrap)
+--- @return LDH.JumpResult|boolean result jump search count, or false when "unhandled"
+function M.jump(count)
   if not M.should_highlight() then
     return false
   end
@@ -207,33 +206,63 @@ function M.jump(count, wrap)
   if not refs or #refs == 0 then
     return false
   end
-  if count == 0 then
-    return true
-  end
-  local idx = M.cur_ref_idx(0, true, count < 0)
-  if not idx then
+  local n = #refs
+  local dir = count >= 0 and 1 or -1
+  local from = M.cur_ref_idx(0, true, dir < 0)
+  if not from then
     return false
   end
-  idx = idx + count
-  if math.abs(count) > 1 then
-    -- when jumping with a count, clamp to first/last (never wrap)
-    idx = math.max(1, math.min(#refs, idx))
-  elseif wrap then
-    idx = (idx - 1) % #refs + 1
+  if count == 0 then
+    return { cur = from, cnt = n, wrapped = false }
   end
+
+  local raw = from + count
+  local idx, wrapped
+  if raw >= 1 and raw <= n then
+    idx, wrapped = raw, false
+  elseif vim.o.wrapscan then
+    idx, wrapped = (raw - 1) % n + 1, true
+  elseif config.get().clamp_jumps then
+    idx, wrapped = (raw < 1 and 1 or n), false
+  else
+    local msg = ("E%d: Search hit %s without match for: %s"):format(
+      dir > 0 and 385 or 384,
+      dir > 0 and "BOTTOM" or "TOP",
+      vim.fn.expand("<cword>")
+    )
+    vim.api.nvim_echo({ { msg } }, true, { err = true })
+    return true
+  end
+
   local target = refs[idx]
-  if target then
-    if config.get().navigation.set_jump then
-      vim.cmd.normal({ "m`", bang = true })
-    end
-    vim.api.nvim_win_set_cursor(0, target.l)
-    if config.get().navigation.open_folds then
-      vim.cmd.normal({ "zv", bang = true })
-    end
-  elseif config.get().navigation.notify_end then
-    vim.notify("No more references", vim.log.levels.INFO)
+  -- (no jumplist API exists) this nicely sets pcmark and jumplist
+  local mark = "'z"
+  local save = vim.fn.getpos(mark)
+  vim.fn.setpos(mark, { 0, target.l[1], target.l[2] + 1, 0 })
+  vim.cmd.normal({ "`z", bang = true })
+  vim.fn.setpos(mark, save)
+  if vim.tbl_contains(vim.opt.foldopen:get(), "search") then
+    vim.cmd.normal({ "zv", bang = true })
   end
-  return true
+
+  local sm_s = vim.o.shortmess:find("s", 1, true) ~= nil
+  local sm_S = vim.o.shortmess:find("S", 1, true) ~= nil
+  if wrapped and sm_S and not sm_s then
+    local warn = dir > 0 and "search hit BOTTOM, continuing at TOP" or "search hit TOP, continuing at BOTTOM"
+    vim.v.warningmsg = warn
+    vim.api.nvim_echo({ { warn, "WarningMsg" } }, true, {})
+  end
+  if wrapped then
+    vim.api.nvim_exec_autocmds("SearchWrapped", {})
+  end
+  if not sm_S then
+    if vim.o.hlsearch then
+      vim.v.hlsearch = 1 -- this is for UI plugins like noice.nvim that render the search count as virtualtext
+    end
+    utils.search_count.emit({ cur = idx, cnt = n, wrapped = wrapped, maxcount = 0 })
+  end
+
+  return { cur = idx, cnt = n, wrapped = wrapped }
 end
 
 return M
