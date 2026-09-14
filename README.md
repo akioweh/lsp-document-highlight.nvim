@@ -1,9 +1,10 @@
 # lsp-document-highlight.nvim
 
-_provides you with the power of the `textDocument.documentHighlight` LSP method in a speedy way_
+*provides you with the power of the `textDocument.documentHighlight` LSP method in a speedy way*
 
-> [!TIP]  
-> [`textDocument.documentHighlight`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentHighlight), aka. "cursor word highlighting" or "reference highlighting",
+> [!TIP]
+> [`textDocument.documentHighlight`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentHighlight), aka.
+> "cursor word highlighting" or "reference highlighting",
 > is the UI feature where all references to the symbol under the cursor are shown using a highlight.
 
 ## why does this exist
@@ -24,14 +25,14 @@ _provides you with the power of the `textDocument.documentHighlight` LSP method 
 
 consult your favorite plugin manager.
 
-this plugin loads itself -- no need to call any setup function.  
+this plugin loads itself -- no need to call any setup function.\
 this plugin is self-lazy-loading.
 (although `setup()` currently triggers loading... but there's so little code anyway)
 
 ## configuration
 
 see [config.lua](./lua/lsp-document-highlight/config.lua) for the defaults
-and [types.lua](./lua/lsp-document-highlight/types.lua) for annotations on what the keys mean.  
+and [types.lua](./lua/lsp-document-highlight/types.lua) for annotations on what the keys mean.\
 if you have `lua_ls` set up, you can also enjoy autocompletion and
 hover documentation in your plugin config
 if you annotate the table with the `LDH.config` type.
@@ -43,7 +44,7 @@ require it to access all the public functions (see [the code](./lua/lsp-document
 
 the only thing of interest now is the `require("lsp-document-highlight").jump(count)` function:
 
-> [!TIP]  
+> [!TIP]
 > in a keymap, passing `vim.v.count1` into `jump` allows one to naturally use vim keycounts to jump multiple references at once.
 
 ```lua
@@ -55,7 +56,7 @@ function M.jump(count)
 end
 ```
 
-> [!NOTE]  
+> [!NOTE]
 > this function follows the behavior of built-in searches like `#` / `*`;
 > wrapping behavior follows `vim.o.wrapscan`, search count is printed according to `vim.o.shortmess`, certain marks are set, etc.
 >
@@ -77,10 +78,10 @@ end
 > end)
 > ```
 
-`.enable()` and `.disable()` do what the function names suggest.  
+`.enable()` and `.disable()` do what the function names suggest.\
 you can also do this per-buffer by passing a filtering predicate to the `enable.buffer` key in the config.
 i recommend storing a flag in `vim.b[]` and have the predicate check the flag :).
 
----
+------------------------------------------------------------------------------------------------------------------------
 
-PS. star pls :)
+P.S. star pls :)
